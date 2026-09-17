@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Studio Storage & Media Renders (Video files, audio, databases, browser profiles)
+storage/
+*.mp4
+*.mp3
+*.wav
+*.ass
+*.log
+
+# Scratch scripts
+scratch/
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment & Credentials
+.env
+.env.local
+*.pem
+*.key
+client_secrets.json
+token.json
+
+# OS / IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
