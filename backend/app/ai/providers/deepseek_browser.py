@@ -38,16 +38,18 @@ class DeepSeekBrowserProvider(AIProvider):
             }
 
     async def analyze(self, transcript_text: str, duration: float, prompt_override: Optional[str] = None, title: str = "Viral Video", video_url: str = "") -> str:
-        prompt_template = prompt_override or SYSTEM_MOMENT_DETECTION_PROMPT
-        prompt = prompt_template.format(
-            title=title,
-            video_url=video_url or "https://youtube.com",
-            duration=duration,
-            transcript=transcript_text,
-            max_shorts=10,
-            min_duration=20,
-            max_duration=60
-        )
+        if prompt_override:
+            prompt = prompt_override
+        else:
+            prompt = SYSTEM_MOMENT_DETECTION_PROMPT.format(
+                title=title,
+                video_url=video_url or "https://youtube.com",
+                duration=duration,
+                transcript=transcript_text,
+                max_shorts=10,
+                min_duration=20,
+                max_duration=60
+            )
 
         logger.info("Opening DeepSeek session in Chrome...")
         page = await browser_manager.get_or_create_page("deepseek.com", self.URL)

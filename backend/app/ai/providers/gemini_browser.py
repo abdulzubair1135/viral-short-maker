@@ -39,19 +39,19 @@ class GeminiBrowserProvider(AIProvider):
             }
 
     async def analyze(self, transcript_text: str, duration: float, prompt_override: Optional[str] = None, title: str = "Viral Video", video_url: str = "") -> str:
-        # Sanitize sensitive words that trip consumer Gemini keyword safety filters
-        safe_transcript = re.sub(r'\bbooby\s*traps?\b', 'obstacle traps', transcript_text, flags=re.IGNORECASE)
-
-        prompt_template = prompt_override or SYSTEM_MOMENT_DETECTION_PROMPT
-        prompt = prompt_template.format(
-            title=title,
-            video_url=video_url or "https://youtube.com",
-            duration=duration,
-            transcript=safe_transcript,
-            max_shorts=10,
-            min_duration=20,
-            max_duration=60
-        )
+        if prompt_override:
+            prompt = prompt_override
+        else:
+            safe_transcript = re.sub(r'\bbooby\s*traps?\b', 'obstacle traps', transcript_text, flags=re.IGNORECASE)
+            prompt = SYSTEM_MOMENT_DETECTION_PROMPT.format(
+                title=title,
+                video_url=video_url or "https://youtube.com",
+                duration=duration,
+                transcript=safe_transcript,
+                max_shorts=10,
+                min_duration=20,
+                max_duration=60
+            )
 
         logger.info("Opening Gemini session in Chrome...")
         page = await browser_manager.get_or_create_page("gemini.google.com", self.URL)
