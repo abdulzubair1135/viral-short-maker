@@ -186,11 +186,12 @@ class MemeRenderer:
         output_mp4: Path,
         work_dir: Path,
         audio_path: Optional[str] = None,
-        attribution_text: str = ""
+        attribution_text: str = "",
+        export_gif: bool = True
     ) -> Path:
         """
-        Renders complete 9:16 vertical meme short with Ken Burns motion, blurred backdrop,
-        layered typography overlay, and synced voiceover.
+        Renders complete 9:16 vertical meme short with Ken Burns motion/GIF animation, blurred backdrop,
+        layered typography overlay, clean/voiceover audio, and optional GIF export.
         """
         output_mp4.parent.mkdir(parents=True, exist_ok=True)
         work_dir.mkdir(parents=True, exist_ok=True)
@@ -227,7 +228,7 @@ class MemeRenderer:
         # Build Video Filter Graph:
         # Background: Scaled and blurred 1080x1920
         # Foreground: Centered visual asset scaled to fit nicely in 960x1000 with a clean drop-shadow card
-        # Ken Burns zoom on foreground for high visual retention
+        # Ken Burns zoom / GIF looping on foreground for high visual retention
         # Typography overlay rendered on top
         vf_chain = (
             f"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=25:5[bg];"
@@ -236,11 +237,15 @@ class MemeRenderer:
             f"[comp][1:v]overlay=0:0[v_final]"
         )
 
-        args = [
-            "-y",
-            "-loop", "1",
-            "-t", f"{duration:.2f}",
-            "-i", str(asset_path),
+        is_gif = str(asset_path).lower().endswith(".gif")
+        
+        args = ["-y"]
+        if is_gif:
+            args += ["-ignore_loop", "0", "-i", str(asset_path)]
+        else:
+            args += ["-loop", "1", "-t", f"{duration:.2f}", "-i", str(asset_path)]
+
+        args += [
             "-loop", "1",
             "-t", f"{duration:.2f}",
             "-i", str(overlay_png),
@@ -282,6 +287,24 @@ class MemeRenderer:
             str(output_mp4)
         ]
 
-        logger.info(f"Rendering Meme Short ({fmt}, {duration:.1f}s) to {output_mp4.name}")
+        logger.info(f"Rendering Meme Short ({fmt}, {duration:.1f}s, asset_is_gif={is_gif}) to {output_mp4.name}")
         ffmpeg.run_command(args, timeout=180)
+
+        # Export high-quality 9:16 vertical GIF version if requested
+        if export_gif:
+            output_gif = output_mp4.with_suffix(".gif")
+            logger.info(f"Exporting GIF version of meme to {output_gif.name}...")
+            gif_args = [
+                "-y",
+                "-i", str(output_mp4),
+                "-vf", "fps=15,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer",
+                "-t", f"{min(duration, 8.0):.2f}",
+                str(output_gif)
+            ]
+            try:
+                ffmpeg.run_command(gif_args, timeout=90)
+                logger.info(f"Successfully generated GIF meme at {output_gif.name}")
+            except Exception as e:
+                logger.warning(f"GIF export failed ({e}), MP4 video remains available.")
+
         return output_mp4

@@ -123,7 +123,7 @@ export const MemeStudioView: React.FC<MemeStudioViewProps> = ({
             </span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-400">
-            Create high-retention 9:16 vertical meme Shorts with verified licensed assets, AI jokes, and voiceover.
+            Create high-retention 9:16 vertical meme Shorts & animated GIFs with clean silent audio (no voiceover), AI jokes, and verified licensed visual assets.
           </p>
         </div>
       </div>

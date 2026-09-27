@@ -301,9 +301,21 @@ export const MemeResultsView: React.FC<MemeResultsViewProps> = ({
                   <a
                     href={meme.output_path ? `/api/memes/video/${meme.id}` : '#'}
                     download={`meme_${meme.id.slice(0, 8)}.mp4`}
-                    className="py-1.5 px-3 rounded-lg bg-studio-850 hover:bg-studio-800 border border-studio-700 text-slate-300 text-[11px] font-semibold flex items-center justify-center gap-1 transition"
+                    className="py-1.5 px-2.5 rounded-lg bg-studio-850 hover:bg-studio-800 border border-studio-700 text-slate-300 text-[11px] font-semibold flex items-center justify-center gap-1 transition"
+                    title="Download MP4 Video"
                   >
                     <Download className="w-3 h-3 text-indigo-400" />
+                    <span>MP4</span>
+                  </a>
+
+                  <a
+                    href={meme.output_path ? `/api/memes/gif/${meme.id}` : '#'}
+                    download={`meme_${meme.id.slice(0, 8)}.gif`}
+                    className="py-1.5 px-2.5 rounded-lg bg-purple-950/60 hover:bg-purple-900/60 border border-purple-500/30 text-purple-300 text-[11px] font-semibold flex items-center justify-center gap-1 transition"
+                    title="Download GIF Meme"
+                  >
+                    <Download className="w-3 h-3 text-purple-400" />
+                    <span>GIF</span>
                   </a>
                 </div>
 

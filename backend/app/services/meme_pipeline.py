@@ -153,18 +153,21 @@ class MemePipelineService:
                     preferred_asset_id=target_asset_id
                 )
 
-                # 2. Synthesize audio voiceover narration
-                voice_audio_path = work_dir / f"voice_{meme_id}.mp3"
-                try:
-                    await NarrationEngine.generate_commentary_audio(
-                        script_data=concept.get("voice_script", f"{concept['hook']}. {concept['joke']}"),
-                        output_path=voice_audio_path
-                    )
-                except Exception as e:
-                    logger.warning(f"Voiceover synthesis failed ({e}), proceeding with silent audio.")
-                    voice_audio_path = None
+                # 2. Synthesize audio voiceover narration (disabled for memes per user directive unless explicitly requested)
+                include_voice = bool(concept.get("include_voice", False))
+                voice_audio_path = None
+                if include_voice:
+                    voice_audio_path = work_dir / f"voice_{meme_id}.mp3"
+                    try:
+                        await NarrationEngine.generate_commentary_audio(
+                            script_data=concept.get("voice_script", f"{concept['hook']}. {concept['joke']}"),
+                            output_path=voice_audio_path
+                        )
+                    except Exception as e:
+                        logger.warning(f"Voiceover synthesis failed ({e}), proceeding with silent audio.")
+                        voice_audio_path = None
 
-                # 3. Render 9:16 vertical video
+                # 3. Render 9:16 vertical video and export GIF version
                 output_mp4 = output_dir / f"meme_{meme_id}.mp4"
                 lic_rec = asset.get("license_record", {})
                 attribution_text = lic_rec.get("attribution_text", "") if lic_rec.get("attribution_required") else ""
@@ -175,7 +178,8 @@ class MemePipelineService:
                     output_mp4=output_mp4,
                     work_dir=work_dir,
                     audio_path=str(voice_audio_path) if voice_audio_path and voice_audio_path.exists() else None,
-                    attribution_text=attribution_text
+                    attribution_text=attribution_text,
+                    export_gif=True
                 )
 
                 # 4. Run 15-point QC verification

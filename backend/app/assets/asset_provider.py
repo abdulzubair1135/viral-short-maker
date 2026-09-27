@@ -111,6 +111,22 @@ def evaluate_license(license_name: str, source: str, creator: str = "", source_u
             verified_at=now_iso
         )
 
+    # Unsplash / Royalty-Free Commercial License
+    if "unsplash" in lname_clean or "royalty-free" in lname_clean or source in ("unsplash_royalty_free", "unsplash"):
+        return LicenseRecord(
+            source=source,
+            source_url=source_url,
+            creator=creator or "Unsplash Contributor",
+            license_name="Unsplash Commercial License",
+            license_url="https://unsplash.com/license",
+            commercial_use=True,
+            modification_allowed=True,
+            attribution_required=False,
+            attribution_text="Royalty-free commercial visual asset",
+            safety_state=AssetSafetyState.VERIFIED_SAFE,
+            verified_at=now_iso
+        )
+
     # Generated / Built-in
     if source in ("generated", "built_in"):
         return LicenseRecord(

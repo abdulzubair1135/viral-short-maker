@@ -69,6 +69,7 @@ def get_project_memes(project_id: str):
             m_dict["scores"] = json.loads(m_dict.get("scores_json") or "{}")
             m_dict["hashtags"] = json.loads(m_dict.get("hashtags") or "[]")
             m_dict["video_url"] = f"/api/memes/video/{m_dict['id']}" if m_dict.get("output_path") else ""
+            m_dict["gif_url"] = f"/api/memes/gif/{m_dict['id']}" if m_dict.get("output_path") else ""
             m_dict["license_record"] = {
                 "source": m_dict.get("source", "unknown"),
                 "creator": m_dict.get("creator", "Unknown"),
@@ -165,4 +166,26 @@ def stream_meme_video(meme_id: str):
         path=str(p),
         media_type="video/mp4",
         filename=f"meme_{meme_id[:8]}.mp4"
+    )
+
+@router.get("/gif/{meme_id}")
+def stream_meme_gif(meme_id: str):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT output_path FROM memes WHERE id = ?", (meme_id,))
+        row = cursor.fetchone()
+        if not row or not row["output_path"]:
+            raise HTTPException(status_code=404, detail="Meme not found")
+
+    p = Path(row["output_path"]).with_suffix(".gif")
+    if not p.exists():
+        p = Path(row["output_path"])
+        if not p.exists():
+            raise HTTPException(status_code=404, detail="Meme file does not exist on disk")
+
+    media_type = "image/gif" if p.suffix.lower() == ".gif" else "video/mp4"
+    return FileResponse(
+        path=str(p),
+        media_type=media_type,
+        filename=f"meme_{meme_id[:8]}{p.suffix}"
     )
