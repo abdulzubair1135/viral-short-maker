@@ -462,47 +462,103 @@ class ReactionGifProvider:
     """Acquires and generates copyright-safe, high-retention animated reaction GIFs for memes."""
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-    # Curated royalty-free animated GIF reactions mapped to topics
+    # Curated royalty-free animated GIF reactions mapped to topics (featuring funny cat & dog reactions)
     TOPIC_GIF_MAP = {
+        "cat": [
+            "https://upload.wikimedia.org/wikipedia/commons/8/81/Cat_funny_gif.gif",
+        ],
+        "dog": [
+            "https://upload.wikimedia.org/wikipedia/commons/9/91/Dog_galloping.gif",
+            "https://upload.wikimedia.org/wikipedia/commons/6/66/Dog_galloping_slow_motion.gif",
+        ],
+        "family": [
+            "https://upload.wikimedia.org/wikipedia/commons/8/81/Cat_funny_gif.gif",
+            "https://upload.wikimedia.org/wikipedia/commons/9/91/Dog_galloping.gif",
+        ],
         "sleep": [
-            "https://upload.wikimedia.org/wikipedia/commons/7/7a/Alarm_Clock_GIF_Animation_High_Res.gif",
             "https://upload.wikimedia.org/wikipedia/commons/8/81/Cat_funny_gif.gif",
         ],
         "car": [
             "https://upload.wikimedia.org/wikipedia/commons/c/c1/Porsche_928_animated_headlights.gif",
-            "https://upload.wikimedia.org/wikipedia/commons/e/ec/UK_Roundabout_8_Cars.gif",
-        ],
-        "flight": [
-            "https://upload.wikimedia.org/wikipedia/commons/e/e8/Newtons_cradle_animation_book.gif",
-            "https://upload.wikimedia.org/wikipedia/commons/7/7a/Alarm_Clock_GIF_Animation_High_Res.gif",
+            "https://upload.wikimedia.org/wikipedia/commons/8/81/Cat_funny_gif.gif",
         ],
         "work": [
-            "https://upload.wikimedia.org/wikipedia/commons/6/6a/Sorting_quicksort_anim.gif",
-            "https://upload.wikimedia.org/wikipedia/commons/b/b3/Animation_of_a_video_interview_using_phone.gif",
+            "https://upload.wikimedia.org/wikipedia/commons/8/81/Cat_funny_gif.gif",
+            "https://upload.wikimedia.org/wikipedia/commons/9/91/Dog_galloping.gif",
         ],
         "coding": [
+            "https://upload.wikimedia.org/wikipedia/commons/8/81/Cat_funny_gif.gif",
             "https://upload.wikimedia.org/wikipedia/commons/6/6a/Sorting_quicksort_anim.gif",
         ],
         "default": [
-            "https://upload.wikimedia.org/wikipedia/commons/1/13/Animated_Awesome_Face_smiley.gif",
-            "https://upload.wikimedia.org/wikipedia/commons/8/81/Cat_funny_gif.gif",
+            "https://upload.wikimedia.org/wikipedia/commons/8/81/Cat_funny_gif.gif",       # Funny Cat Reaction GIF
+            "https://upload.wikimedia.org/wikipedia/commons/9/91/Dog_galloping.gif",       # Funny Dog Reaction GIF
+            "https://upload.wikimedia.org/wikipedia/commons/6/66/Dog_galloping_slow_motion.gif", # Funny Dog Slow Mo GIF
         ]
     }
+
+    @classmethod
+    def live_wikimedia_gif_search(cls, query: str) -> List[str]:
+        """Dynamically searches Wikimedia Commons for live animated GIFs matching the topic or funny cat/dog keywords."""
+        try:
+            clean_q = re.sub(r'[^\w\s]', '', query).strip()
+            if not clean_q:
+                clean_q = "funny cat"
+            
+            search_terms = [f"{clean_q} gif", "funny cat gif", "dog gif"]
+            urls = []
+            for term in search_terms:
+                q = urllib.parse.quote(term)
+                url = f"https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch={q}&srnamespace=6&srlimit=8&format=json"
+                req = urllib.request.Request(url, headers={"User-Agent": cls.USER_AGENT})
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    data = json.loads(resp.read().decode('utf-8'))
+                    items = data.get('query', {}).get('search', [])
+                    gif_titles = [item['title'] for item in items if item.get('title', '').lower().endswith('.gif')]
+                    if not gif_titles:
+                        continue
+                    
+                    title_str = '|'.join(gif_titles[:4])
+                    info_url = f"https://commons.wikimedia.org/w/api.php?action=query&titles={urllib.parse.quote(title_str)}&prop=imageinfo&iiprop=url|mime&format=json"
+                    info_req = urllib.request.Request(info_url, headers={"User-Agent": cls.USER_AGENT})
+                    with urllib.request.urlopen(info_req, timeout=5) as info_resp:
+                        info_data = json.loads(info_resp.read().decode('utf-8'))
+                        pages = info_data.get('query', {}).get('pages', {})
+                        for _, p in pages.items():
+                            ii = p.get('imageinfo', [{}])[0]
+                            if ii.get('mime') == 'image/gif' and ii.get('url'):
+                                urls.append(ii['url'])
+                if urls:
+                    break
+            return urls
+        except Exception as e:
+            print(f"[ReactionGifProvider] Dynamic GIF search error: {e}")
+            return []
 
     @classmethod
     def search_and_download(cls, query: str, target_gif_path: Path, style: str = "sarcastic") -> Optional[LicenseRecord]:
         q_lower = (query or "").lower()
         urls = []
 
-        if any(w in q_lower for w in ["sleep", "bed", "tired", "alarm", "snooze", "nap", "thermostat", "dad"]):
+        # 1. Try dynamic live search first
+        live_urls = cls.live_wikimedia_gif_search(query)
+        if live_urls:
+            urls.extend(live_urls)
+
+        # 2. Add topic-matched cat & dog curated URLs
+        if any(w in q_lower for w in ["cat", "billi", "pussy", "kitten"]):
+            urls.extend(cls.TOPIC_GIF_MAP["cat"])
+        elif any(w in q_lower for w in ["dog", "kutta", "puppy", "hound"]):
+            urls.extend(cls.TOPIC_GIF_MAP["dog"])
+        elif any(w in q_lower for w in ["family", "mom", "dad", "parents", "relatives", "home", "brother", "sister"]):
+            urls.extend(cls.TOPIC_GIF_MAP["family"])
+        elif any(w in q_lower for w in ["sleep", "bed", "tired", "alarm", "snooze"]):
             urls.extend(cls.TOPIC_GIF_MAP["sleep"])
-        elif any(w in q_lower for w in ["car", "light", "drive", "night", "headlight"]):
+        elif any(w in q_lower for w in ["car", "light", "drive", "night"]):
             urls.extend(cls.TOPIC_GIF_MAP["car"])
-        elif any(w in q_lower for w in ["flight", "plane", "airport", "time", "clock", "gate"]):
-            urls.extend(cls.TOPIC_GIF_MAP["flight"])
-        elif any(w in q_lower for w in ["work", "job", "office", "boss", "desk", "deploy"]):
+        elif any(w in q_lower for w in ["work", "job", "office", "boss", "desk"]):
             urls.extend(cls.TOPIC_GIF_MAP["work"])
-        elif any(w in q_lower for w in ["code", "coding", "program", "developer", "bug"]):
+        elif any(w in q_lower for w in ["code", "coding", "program", "developer"]):
             urls.extend(cls.TOPIC_GIF_MAP["coding"])
         
         urls.extend(cls.TOPIC_GIF_MAP["default"])
