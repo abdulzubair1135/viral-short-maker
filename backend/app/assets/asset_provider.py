@@ -361,24 +361,65 @@ class RoyaltyFreeStockProvider:
     """Fetches high resolution, copyright-safe stock and reaction photos for viral memes."""
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+    TOPIC_PHOTO_MAP = {
+        "sleep": [
+            "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=800&auto=format&fit=crop", # Sleeping person in bed
+            "https://images.unsplash.com/photo-1511295742362-92c96b124e52?w=800&auto=format&fit=crop", # Sleeping cat
+            "https://images.unsplash.com/photo-1584473457406-6df376d1b6ae?w=800&auto=format&fit=crop", # Alarm clock
+        ],
+        "friends": [
+            "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&auto=format&fit=crop", # Friends laughing together
+            "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800&auto=format&fit=crop", # Group of friends having fun
+        ],
+        "work": [
+            "https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=800&auto=format&fit=crop", # Stressed office worker
+            "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&auto=format&fit=crop", # Office team
+        ],
+        "coding": [
+            "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop", # Code screen
+            "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&auto=format&fit=crop", # Laptop
+        ],
+        "food": [
+            "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&auto=format&fit=crop", # Pizza
+            "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&auto=format&fit=crop", # Burger
+        ],
+        "coffee": [
+            "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&auto=format&fit=crop", # Morning coffee
+        ],
+        "gym": [
+            "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=800&auto=format&fit=crop", # Gym dumbbell
+        ],
+        "money": [
+            "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=800&auto=format&fit=crop", # Cash bills
+        ],
+        "default": [
+            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop", # Shocked human expression
+            "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&auto=format&fit=crop", # Confused human expression
+        ]
+    }
+
     @classmethod
     def search_and_download(cls, query: str, target_path: Path) -> Optional[LicenseRecord]:
-        words = re.sub(r'[^\w\s]', '', query).lower().split()
-        ignore = {"on", "the", "basis", "of", "a", "an", "and", "or", "to", "in", "for", "with", "meme", "funny", "frd", "pov"}
-        clean_words = [w for w in words if w not in ignore]
-        if any(w in words for w in ["frd", "friend", "friends"]):
-            clean_words.append("friends")
+        q_lower = (query or "").lower()
+        
+        urls = []
+        # Detect topic match
+        if any(w in q_lower for w in ["sleep", "bed", "tired", "alarm", "snooze", "nap"]):
+            urls.extend(cls.TOPIC_PHOTO_MAP["sleep"])
+        elif any(w in q_lower for w in ["friend", "friends", "frd", "group", "buddy"]):
+            urls.extend(cls.TOPIC_PHOTO_MAP["friends"])
+        elif any(w in q_lower for w in ["work", "job", "boss", "office", "desk", "deploy"]):
+            urls.extend(cls.TOPIC_PHOTO_MAP["work"])
+        elif any(w in q_lower for w in ["code", "coding", "program", "developer", "bug", "python"]):
+            urls.extend(cls.TOPIC_PHOTO_MAP["coding"])
+        elif any(w in q_lower for w in ["food", "eat", "pizza", "burger", "hungry"]):
+            urls.extend(cls.TOPIC_PHOTO_MAP["food"])
+        elif any(w in q_lower for w in ["gym", "workout", "fitness", "lift"]):
+            urls.extend(cls.TOPIC_PHOTO_MAP["gym"])
+        elif any(w in q_lower for w in ["money", "cash", "rich", "broke", "paid"]):
+            urls.extend(cls.TOPIC_PHOTO_MAP["money"])
 
-        search_term = " ".join(clean_words[:3]) or "funny reaction"
-        encoded_term = urllib.parse.quote(search_term)
-
-        # High resolution royalty-free Unsplash public stock image endpoints
-        urls = [
-            f"https://source.unsplash.com/featured/800x800/?{encoded_term}",
-            f"https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800&auto=format&fit=crop", # Dog shock reaction
-            f"https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800&auto=format&fit=crop", # Funny dog expression
-            f"https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop", # Human reaction expression
-        ]
+        urls.extend(cls.TOPIC_PHOTO_MAP["default"])
 
         target_path.parent.mkdir(parents=True, exist_ok=True)
         for u in urls:

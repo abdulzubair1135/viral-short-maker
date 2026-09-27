@@ -44,12 +44,15 @@ class BrowserSessionManager:
         return cls._instance
 
     def ensure_chrome_running(self):
-        """Starts Chrome with remote debugging on port 9222 if not already open."""
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        result = sock.connect_ex(('127.0.0.1', CHROME_DEBUG_PORT))
-        sock.close()
-        if result == 0:
-            return  # Already listening
+        """Starts Chrome with remote debugging on port 9222 if not already open, waiting until port is ready."""
+        def is_port_open():
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            res = sock.connect_ex(('127.0.0.1', CHROME_DEBUG_PORT))
+            sock.close()
+            return res == 0
+
+        if is_port_open():
+            return
 
         logger.info(f"Starting Chrome with profile '{CHROME_PROFILE_DIR}' on debug port {CHROME_DEBUG_PORT}...")
         chrome_exe = get_chrome_executable()
@@ -58,22 +61,39 @@ class BrowserSessionManager:
             chrome_exe,
             f"--remote-debugging-port={CHROME_DEBUG_PORT}",
             f"--user-data-dir={str(CHROME_PROFILE_DIR)}",
-            "https://gemini.google.com",
-            "https://chat.deepseek.com",
+            "https://gemini.google.com/app",
+            "https://chat.deepseek.com/",
         ]
         subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(3.5)
+        
+        # Poll up to 15 seconds for port 9222 to open
+        for _ in range(30):
+            time.sleep(0.5)
+            if is_port_open():
+                logger.info("Chrome debug port 9222 is active and listening!")
+                time.sleep(1.0)
+                return
+        logger.warning("Chrome debug port 9222 did not open within timeout.")
 
     async def get_cdp_context(self) -> BrowserContext:
-        """Connects to Chrome session over CDP (port 9222)."""
+        """Connects to Chrome session over CDP (port 9222) with automatic retries."""
         self.ensure_chrome_running()
 
         if self.playwright is None:
             self.playwright = await async_playwright().start()
 
-        if self.browser is None or not self.browser.is_connected():
-            logger.info(f"Connecting Playwright over CDP to {CDP_URL}...")
-            self.browser = await self.playwright.chromium.connect_over_cdp(CDP_URL)
+        for attempt in range(3):
+            try:
+                if self.browser is None or not self.browser.is_connected():
+                    logger.info(f"Connecting Playwright over CDP to {CDP_URL} (Attempt {attempt+1}/3)...")
+                    self.browser = await self.playwright.chromium.connect_over_cdp(CDP_URL)
+                break
+            except Exception as e:
+                logger.warning(f"CDP connection attempt {attempt+1} failed: {e}")
+                await asyncio.sleep(2.0)
+
+        if not self.browser or not self.browser.is_connected():
+            raise RuntimeError(f"Could not connect to Chrome on debug port {CHROME_DEBUG_PORT}.")
 
         contexts = self.browser.contexts
         self.context = contexts[0] if contexts else await self.browser.new_context()
