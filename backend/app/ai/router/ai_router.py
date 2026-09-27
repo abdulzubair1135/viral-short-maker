@@ -1,4 +1,5 @@
 import time
+import json
 from typing import Dict, Any, List, Optional
 from backend.app.ai.base_provider import AIProvider
 from backend.app.ai.providers.gemini_browser import GeminiBrowserProvider
