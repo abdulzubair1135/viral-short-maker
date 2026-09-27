@@ -6,7 +6,7 @@ import urllib.request
 import urllib.parse
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass, asdict
 
 from backend.app.config import ASSETS_DIR
@@ -673,27 +673,37 @@ class DirectUrlProvider:
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     @classmethod
-    def download_url(cls, url: str, target_path: Path) -> Optional[LicenseRecord]:
+    def download_url(cls, url: str, target_path: Path) -> Tuple[Optional[LicenseRecord], Path]:
         if not url or not (url.startswith("http://") or url.startswith("https://")):
-            return None
+            return None, target_path
 
         target_path.parent.mkdir(parents=True, exist_ok=True)
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": cls.USER_AGENT})
+            safe_u = urllib.parse.quote(url, safe=':/?&=#%')
+            req = urllib.request.Request(safe_u, headers={"User-Agent": cls.USER_AGENT})
             with urllib.request.urlopen(req, timeout=12) as resp:
                 content = resp.read()
                 if len(content) > 3000:
-                    with open(target_path, "wb") as f:
+                    ext = ".jpg"
+                    if content.startswith(b"GIF87a") or content.startswith(b"GIF89a") or ".gif" in url.lower():
+                        ext = ".gif"
+                    elif content.startswith(b"\x89PNG") or ".png" in url.lower():
+                        ext = ".png"
+                    elif content.startswith(b"RIFF") and b"WEBP" in content[:16]:
+                        ext = ".webp"
+
+                    real_path = target_path.with_suffix(ext)
+                    with open(real_path, "wb") as f:
                         f.write(content)
                     return evaluate_license(
                         license_name="Direct AI / User Provided Link",
                         source="direct_url",
                         creator="Online Source",
                         source_url=url
-                    )
+                    ), real_path
         except Exception as e:
             print(f"[DirectUrlProvider] Download failed for direct URL {url}: {e}")
-        return None
+        return None, target_path
 
 
 class WebMemeImageProvider:
@@ -705,7 +715,7 @@ class WebMemeImageProvider:
     ]
 
     @classmethod
-    def search_and_download(cls, query: str, target_path: Path, style: str = "sarcastic", asset_index: int = 0) -> Optional[LicenseRecord]:
+    def search_and_download(cls, query: str, target_path: Path, style: str = "sarcastic", asset_index: int = 0) -> Tuple[Optional[LicenseRecord], Path]:
         clean_q = re.sub(r'[^\w\s]', '', query).strip()
         if not clean_q:
             clean_q = "funny reaction meme"
@@ -738,7 +748,7 @@ class WebMemeImageProvider:
                 break
 
         if not found_urls:
-            return None
+            return None, target_path
 
         # Rotate URLs based on asset_index for per-card diversity
         start_pos = asset_index % len(found_urls)
@@ -747,23 +757,33 @@ class WebMemeImageProvider:
         target_path.parent.mkdir(parents=True, exist_ok=True)
         for u in rotated:
             try:
-                req = urllib.request.Request(u, headers={"User-Agent": cls.USER_AGENT})
+                safe_u = urllib.parse.quote(u, safe=':/?&=#%')
+                req = urllib.request.Request(safe_u, headers={"User-Agent": cls.USER_AGENT})
                 with urllib.request.urlopen(req, timeout=10) as resp:
                     content = resp.read()
                     if len(content) > 3000:
-                        with open(target_path, "wb") as f:
+                        ext = ".jpg"
+                        if content.startswith(b"GIF87a") or content.startswith(b"GIF89a") or ".gif" in u.lower():
+                            ext = ".gif"
+                        elif content.startswith(b"\x89PNG") or ".png" in u.lower():
+                            ext = ".png"
+                        elif content.startswith(b"RIFF") and b"WEBP" in content[:16]:
+                            ext = ".webp"
+
+                        real_path = target_path.with_suffix(ext)
+                        with open(real_path, "wb") as f:
                             f.write(content)
                         return evaluate_license(
                             license_name="Web Viral Meme / Royalty Free",
                             source="web_meme_search",
                             creator="Web Contributor",
                             source_url=u
-                        )
+                        ), real_path
             except Exception as e:
                 print(f"[WebMemeImageProvider] Failed download from {u}: {e}")
                 continue
 
-        return None
+        return None, target_path
 
 
 class AssetManager:
@@ -822,9 +842,8 @@ class AssetManager:
         # 2. Check direct visual_url if provided by AI or prompt
         if visual_url and (visual_url.startswith("http://") or visual_url.startswith("https://")):
             url_asset_id = str(uuid.uuid4())
-            ext = ".gif" if ".gif" in visual_url.lower() else ".jpg"
-            url_save_path = ASSETS_DIR / "memes" / f"{url_asset_id}{ext}"
-            url_license = DirectUrlProvider.download_url(visual_url, url_save_path)
+            url_save_path_input = ASSETS_DIR / "memes" / f"{url_asset_id}.jpg"
+            url_license, url_save_path = DirectUrlProvider.download_url(visual_url, url_save_path_input)
             if url_license and url_save_path.exists() and os.path.getsize(url_save_path) > 3000:
                 with get_db_connection() as conn:
                     cursor = conn.cursor()
@@ -863,8 +882,8 @@ class AssetManager:
 
         # 3. Web Viral Meme Search (Bing Images / KYM / Imgflip / Tenor matching visual_query)
         web_asset_id = str(uuid.uuid4())
-        web_save_path = ASSETS_DIR / "memes" / f"{web_asset_id}.jpg"
-        web_license = WebMemeImageProvider.search_and_download(query, web_save_path, style=style, asset_index=asset_index)
+        web_save_path_input = ASSETS_DIR / "memes" / f"{web_asset_id}.jpg"
+        web_license, web_save_path = WebMemeImageProvider.search_and_download(query, web_save_path_input, style=style, asset_index=asset_index)
 
         if web_license and web_save_path.exists() and os.path.getsize(web_save_path) > 3000:
             with get_db_connection() as conn:

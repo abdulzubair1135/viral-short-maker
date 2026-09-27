@@ -237,18 +237,19 @@ class MemeRenderer:
             f"[comp][1:v]overlay=0:0[v_final]"
         )
 
-        is_gif = str(asset_path).lower().endswith(".gif")
+        abs_asset_path = Path(asset_path).resolve()
+        is_gif = str(abs_asset_path).lower().endswith(".gif")
         
         args = ["-y"]
         if is_gif:
-            args += ["-ignore_loop", "0", "-i", str(asset_path)]
+            args += ["-ignore_loop", "0", "-i", str(abs_asset_path)]
         else:
-            args += ["-loop", "1", "-t", f"{duration:.2f}", "-i", str(asset_path)]
+            args += ["-loop", "1", "-t", f"{duration:.2f}", "-i", str(abs_asset_path)]
 
         args += [
             "-loop", "1",
             "-t", f"{duration:.2f}",
-            "-i", str(overlay_png),
+            "-i", str(overlay_png.resolve()),
         ]
 
         if has_audio:
