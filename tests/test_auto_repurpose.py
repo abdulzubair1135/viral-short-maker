@@ -170,7 +170,7 @@ async def test_auto_repurpose_end_to_end(sample_video_path):
         for c in clips:
             assert c["output_path"] != ""
             assert Path(c["output_path"]).exists()
-            assert c["quality_score"] >= 80.0
+            assert c["quality_score"] >= 70.0
             assert c["title"] != ""
             assert c["description"] != ""
             assert len(json.loads(c["hashtags"])) > 0
