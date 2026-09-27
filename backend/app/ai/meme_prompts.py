@@ -58,7 +58,8 @@ Output ONLY a single valid JSON object strictly matching this schema with NO con
       "joke": "Everything is on fire and the database is speaking Latin",
       "style": "sarcastic",
       "format": "pov",
-      "visual_query": "chaos fire computer explosion funny panic",
+      "visual_query": "chaos fire computer explosion funny reaction gif meme",
+      "visual_url": "",
       "screen_text": [
         {{
           "text": "POV: You clicked deploy at 4:59 PM on Friday",

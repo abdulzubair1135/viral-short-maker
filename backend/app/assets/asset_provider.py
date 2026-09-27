@@ -668,6 +668,104 @@ class ReactionGifProvider:
             return False
 
 
+class DirectUrlProvider:
+    """Downloads a direct image/GIF URL provided by AI or user."""
+    USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+    @classmethod
+    def download_url(cls, url: str, target_path: Path) -> Optional[LicenseRecord]:
+        if not url or not (url.startswith("http://") or url.startswith("https://")):
+            return None
+
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": cls.USER_AGENT})
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                content = resp.read()
+                if len(content) > 3000:
+                    with open(target_path, "wb") as f:
+                        f.write(content)
+                    return evaluate_license(
+                        license_name="Direct AI / User Provided Link",
+                        source="direct_url",
+                        creator="Online Source",
+                        source_url=url
+                    )
+        except Exception as e:
+            print(f"[DirectUrlProvider] Download failed for direct URL {url}: {e}")
+        return None
+
+
+class WebMemeImageProvider:
+    """Searches live web image & GIF search (Bing Images, KYM, Imgflip, Tenor) for real viral memes & reaction GIFs."""
+    USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    BAD_KEYWORDS = [
+        "dpla", "joe_dope", "joe dope", "military", "map", "tessellation",
+        "newspaper", "archive", "historical document", "1800", "1900", "poster"
+    ]
+
+    @classmethod
+    def search_and_download(cls, query: str, target_path: Path, style: str = "sarcastic", asset_index: int = 0) -> Optional[LicenseRecord]:
+        clean_q = re.sub(r'[^\w\s]', '', query).strip()
+        if not clean_q:
+            clean_q = "funny reaction meme"
+
+        search_terms = [
+            f"{clean_q} reaction gif meme",
+            f"{clean_q} funny meme reaction",
+            f"{clean_q} meme template"
+        ]
+
+        found_urls = []
+        for term in search_terms:
+            try:
+                url = f"https://www.bing.com/images/search?q={urllib.parse.quote(term)}&form=HDRSC2&first=1"
+                req = urllib.request.Request(url, headers={"User-Agent": cls.USER_AGENT})
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    html = resp.read().decode('utf-8', errors='ignore')
+                    murls = re.findall(r'murl&quot;:&quot;(https?://[^&]+)&quot;', html)
+                    for u in murls:
+                        u_low = u.lower()
+                        if not any(bad in u_low for bad in cls.BAD_KEYWORDS):
+                            found_urls.append(u)
+                        if len(found_urls) >= 10:
+                            break
+            except Exception as e:
+                print(f"[WebMemeImageProvider] Search attempt error for '{term}': {e}")
+                continue
+
+            if len(found_urls) >= 5:
+                break
+
+        if not found_urls:
+            return None
+
+        # Rotate URLs based on asset_index for per-card diversity
+        start_pos = asset_index % len(found_urls)
+        rotated = found_urls[start_pos:] + found_urls[:start_pos]
+
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        for u in rotated:
+            try:
+                req = urllib.request.Request(u, headers={"User-Agent": cls.USER_AGENT})
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    content = resp.read()
+                    if len(content) > 3000:
+                        with open(target_path, "wb") as f:
+                            f.write(content)
+                        return evaluate_license(
+                            license_name="Web Viral Meme / Royalty Free",
+                            source="web_meme_search",
+                            creator="Web Contributor",
+                            source_url=u
+                        )
+            except Exception as e:
+                print(f"[WebMemeImageProvider] Failed download from {u}: {e}")
+                continue
+
+        return None
+
+
 class AssetManager:
     """Unified discovery and acquisition interface with strict license verification."""
 
@@ -677,12 +775,22 @@ class AssetManager:
         self.pd_provider = PublicDomainProvider()
         self.gif_provider = ReactionGifProvider()
 
-    def get_or_acquire_asset(self, query: str, style: str = "sarcastic", preferred_asset_id: Optional[str] = None, asset_index: int = 0) -> Dict[str, Any]:
+    def get_or_acquire_asset(
+        self,
+        query: str,
+        style: str = "sarcastic",
+        preferred_asset_id: Optional[str] = None,
+        asset_index: int = 0,
+        visual_url: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
-        Retrieves a safe asset with unique asset rotation per meme index.
-        1. If user provided asset ID, verify it from DB.
-        2. Query ReactionGifProvider for high-retention animated reaction GIFs.
-        3. Query Wikimedia Commons / Stock providers.
+        Retrieves a safe visual asset with unique rotation per meme index.
+        1. User provided asset ID
+        2. Direct AI-provided image/GIF URL (visual_url)
+        3. Web Viral Meme & Reaction GIF Search (Bing/KYM/Tenor/Imgflip matching visual_query)
+        4. Curated Reaction GIF Provider (Cat & Dog reaction GIFs)
+        5. Stock photo provider
+        6. Graphic Canvas Fallback
         """
         # 1. Check user provided asset ID
         if preferred_asset_id:
@@ -710,6 +818,89 @@ class AssetManager:
                         "file_path": row["file_path"],
                         "license_record": lic_rec.to_dict()
                     }
+
+        # 2. Check direct visual_url if provided by AI or prompt
+        if visual_url and (visual_url.startswith("http://") or visual_url.startswith("https://")):
+            url_asset_id = str(uuid.uuid4())
+            ext = ".gif" if ".gif" in visual_url.lower() else ".jpg"
+            url_save_path = ASSETS_DIR / "memes" / f"{url_asset_id}{ext}"
+            url_license = DirectUrlProvider.download_url(visual_url, url_save_path)
+            if url_license and url_save_path.exists() and os.path.getsize(url_save_path) > 3000:
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO assets (
+                            id, name, category, file_path, file_size, tags, rights_confirmed,
+                            source, source_url, creator, license_name, license_url,
+                            commercial_use, modification_allowed, attribution_required,
+                            attribution_text, safety_state, verified_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        url_asset_id,
+                        f"Direct Visual: {query[:80]}",
+                        "direct_visual",
+                        str(url_save_path),
+                        os.path.getsize(url_save_path),
+                        json.dumps([query, "direct_url", style]),
+                        1,
+                        url_license.source,
+                        url_license.source_url,
+                        url_license.creator,
+                        url_license.license_name,
+                        url_license.license_url,
+                        1 if url_license.commercial_use else 0,
+                        1 if url_license.modification_allowed else 0,
+                        1 if url_license.attribution_required else 0,
+                        url_license.attribution_text,
+                        url_license.safety_state,
+                        url_license.verified_at
+                    ))
+                return {
+                    "asset_id": url_asset_id,
+                    "file_path": str(url_save_path),
+                    "license_record": url_license.to_dict()
+                }
+
+        # 3. Web Viral Meme Search (Bing Images / KYM / Imgflip / Tenor matching visual_query)
+        web_asset_id = str(uuid.uuid4())
+        web_save_path = ASSETS_DIR / "memes" / f"{web_asset_id}.jpg"
+        web_license = WebMemeImageProvider.search_and_download(query, web_save_path, style=style, asset_index=asset_index)
+
+        if web_license and web_save_path.exists() and os.path.getsize(web_save_path) > 3000:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO assets (
+                        id, name, category, file_path, file_size, tags, rights_confirmed,
+                        source, source_url, creator, license_name, license_url,
+                        commercial_use, modification_allowed, attribution_required,
+                        attribution_text, safety_state, verified_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    web_asset_id,
+                    f"Web Meme: {query[:80]}",
+                    "web_meme",
+                    str(web_save_path),
+                    os.path.getsize(web_save_path),
+                    json.dumps([query, "web_meme", style]),
+                    1,
+                    web_license.source,
+                    web_license.source_url,
+                    web_license.creator,
+                    web_license.license_name,
+                    web_license.license_url,
+                    1 if web_license.commercial_use else 0,
+                    1 if web_license.modification_allowed else 0,
+                    1 if web_license.attribution_required else 0,
+                    web_license.attribution_text,
+                    web_license.safety_state,
+                    web_license.verified_at
+                ))
+            return {
+                "asset_id": web_asset_id,
+                "file_path": str(web_save_path),
+                "license_record": web_license.to_dict()
+            }
 
         # 2. Acquire Animated Reaction GIF for Meme (Primary Choice)
         gif_asset_id = str(uuid.uuid4())

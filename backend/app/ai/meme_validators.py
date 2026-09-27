@@ -33,6 +33,7 @@ def sanitize_meme_item(raw: Dict[str, Any], default_topic: str = "") -> Optional
         fmt = "pov"
 
     visual_query = str(raw.get("visual_query") or f"{concept} funny meme").strip()
+    visual_url = str(raw.get("visual_url") or raw.get("image_url") or raw.get("gif_url") or "").strip()
 
     # Screen text validation
     screen_text = raw.get("screen_text", [])
@@ -100,6 +101,7 @@ def sanitize_meme_item(raw: Dict[str, Any], default_topic: str = "") -> Optional
         "style": style,
         "format": fmt,
         "visual_query": visual_query,
+        "visual_url": visual_url,
         "screen_text": sanitized_screen_text,
         "voice_script": voice_script,
         "scores": sanitized_scores,
