@@ -706,84 +706,46 @@ class DirectUrlProvider:
         return None, target_path
 
 
-class WebMemeImageProvider:
-    """Searches live web image & GIF search (Bing Images, KYM, Imgflip, Tenor) for real viral memes & reaction GIFs."""
+class CuratedMemeTemplateProvider:
+    """Provides curated, high-quality, iconic viral meme templates and reaction GIFs."""
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    BAD_KEYWORDS = [
-        "dpla", "joe_dope", "joe dope", "military", "map", "tessellation",
-        "newspaper", "archive", "historical document", "1800", "1900", "poster"
+
+    CURATED_TEMPLATES = [
+        "https://i.imgflip.com/30b1gx.jpg", # Drake Hotline Bling
+        "https://i.imgflip.com/1ur9b0.jpg", # Distracted Boyfriend
+        "https://i.imgflip.com/1g8my4.jpg", # Two Buttons Decision
+        "https://i.imgflip.com/3lmzyx.jpg", # UNO Draw 25 Cards
+        "https://i.imgflip.com/345v97.jpg", # Woman Yelling At Cat
+        "https://i.imgflip.com/24y43o.jpg", # Change My Mind
+        "https://i.imgflip.com/23ls.jpg",   # Disaster Girl
+        "https://i.imgflip.com/1jwhvw.jpg", # Expanding Brain
+        "https://i.imgflip.com/1c1uej.jpg", # Sad Pablo Escobar
+        "https://i.imgflip.com/4t0m5.jpg",  # Doge Reaction
+        "https://i.imgflip.com/1h7in3.jpg", # Roll Safe Think About It
+        "https://upload.wikimedia.org/wikipedia/commons/8/81/Cat_funny_gif.gif", # Funny Cat GIF
+        "https://upload.wikimedia.org/wikipedia/commons/9/91/Dog_galloping.gif",  # Funny Dog GIF
     ]
 
     @classmethod
-    def search_and_download(cls, query: str, target_path: Path, style: str = "sarcastic", asset_index: int = 0) -> Tuple[Optional[LicenseRecord], Path]:
-        clean_q = re.sub(r'[^\w\s]', '', query).strip()
-        if not clean_q:
-            clean_q = "funny reaction meme"
+    def get_and_download(cls, query: str, target_path: Path, asset_index: int = 0) -> Tuple[Optional[LicenseRecord], Path]:
+        q_low = (query or "").lower()
+        selected_url = None
 
-        search_terms = [
-            f"{clean_q} reaction gif meme",
-            f"{clean_q} funny meme reaction",
-            f"{clean_q} meme template"
-        ]
+        if any(k in q_low for k in ["cat", "billi", "pussy", "kitten"]):
+            selected_url = "https://upload.wikimedia.org/wikipedia/commons/8/81/Cat_funny_gif.gif"
+        elif any(k in q_low for k in ["dog", "kutta", "puppy", "doge"]):
+            selected_url = "https://i.imgflip.com/4t0m5.jpg"
+        elif any(k in q_low for k in ["think", "smart", "brain", "idea", "code", "programming"]):
+            selected_url = "https://i.imgflip.com/1h7in3.jpg"
+        elif any(k in q_low for k in ["choose", "choice", "option", "decision", "button"]):
+            selected_url = "https://i.imgflip.com/1g8my4.jpg"
+        elif any(k in q_low for k in ["reject", "accept", "prefer", "like", "dislike"]):
+            selected_url = "https://i.imgflip.com/30b1gx.jpg"
+        else:
+            idx = asset_index % len(cls.CURATED_TEMPLATES)
+            selected_url = cls.CURATED_TEMPLATES[idx]
 
-        found_urls = []
-        for term in search_terms:
-            try:
-                url = f"https://www.bing.com/images/search?q={urllib.parse.quote(term)}&form=HDRSC2&first=1"
-                req = urllib.request.Request(url, headers={"User-Agent": cls.USER_AGENT})
-                with urllib.request.urlopen(req, timeout=8) as resp:
-                    html = resp.read().decode('utf-8', errors='ignore')
-                    murls = re.findall(r'murl&quot;:&quot;(https?://[^&]+)&quot;', html)
-                    for u in murls:
-                        u_low = u.lower()
-                        if not any(bad in u_low for bad in cls.BAD_KEYWORDS):
-                            found_urls.append(u)
-                        if len(found_urls) >= 10:
-                            break
-            except Exception as e:
-                print(f"[WebMemeImageProvider] Search attempt error for '{term}': {e}")
-                continue
-
-            if len(found_urls) >= 5:
-                break
-
-        if not found_urls:
-            return None, target_path
-
-        # Rotate URLs based on asset_index for per-card diversity
-        start_pos = asset_index % len(found_urls)
-        rotated = found_urls[start_pos:] + found_urls[:start_pos]
-
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        for u in rotated:
-            try:
-                safe_u = urllib.parse.quote(u, safe=':/?&=#%')
-                req = urllib.request.Request(safe_u, headers={"User-Agent": cls.USER_AGENT})
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    content = resp.read()
-                    if len(content) > 3000:
-                        ext = ".jpg"
-                        if content.startswith(b"GIF87a") or content.startswith(b"GIF89a") or ".gif" in u.lower():
-                            ext = ".gif"
-                        elif content.startswith(b"\x89PNG") or ".png" in u.lower():
-                            ext = ".png"
-                        elif content.startswith(b"RIFF") and b"WEBP" in content[:16]:
-                            ext = ".webp"
-
-                        real_path = target_path.with_suffix(ext)
-                        with open(real_path, "wb") as f:
-                            f.write(content)
-                        return evaluate_license(
-                            license_name="Web Viral Meme / Royalty Free",
-                            source="web_meme_search",
-                            creator="Web Contributor",
-                            source_url=u
-                        ), real_path
-            except Exception as e:
-                print(f"[WebMemeImageProvider] Failed download from {u}: {e}")
-                continue
-
-        return None, target_path
+        return DirectUrlProvider.download_url(selected_url, target_path)
 
 
 class AssetManager:
@@ -806,8 +768,8 @@ class AssetManager:
         """
         Retrieves a safe visual asset with unique rotation per meme index.
         1. User provided asset ID
-        2. Direct AI-provided image/GIF URL (visual_url)
-        3. Web Viral Meme & Reaction GIF Search (Bing/KYM/Tenor/Imgflip matching visual_query)
+        2. Direct AI-provided image/GIF URL (visual_url from Gemini/DeepSeek)
+        3. Curated Meme Template Provider (Iconic Imgflip & reaction templates)
         4. Curated Reaction GIF Provider (Cat & Dog reaction GIFs)
         5. Stock photo provider
         6. Graphic Canvas Fallback
@@ -880,12 +842,12 @@ class AssetManager:
                     "license_record": url_license.to_dict()
                 }
 
-        # 3. Web Viral Meme Search (Bing Images / KYM / Imgflip / Tenor matching visual_query)
-        web_asset_id = str(uuid.uuid4())
-        web_save_path_input = ASSETS_DIR / "memes" / f"{web_asset_id}.jpg"
-        web_license, web_save_path = WebMemeImageProvider.search_and_download(query, web_save_path_input, style=style, asset_index=asset_index)
+        # 3. Curated Meme Template Search (Iconic Imgflip & reaction templates)
+        curated_asset_id = str(uuid.uuid4())
+        curated_save_path_input = ASSETS_DIR / "memes" / f"{curated_asset_id}.jpg"
+        curated_license, curated_save_path = CuratedMemeTemplateProvider.get_and_download(query, curated_save_path_input, asset_index=asset_index)
 
-        if web_license and web_save_path.exists() and os.path.getsize(web_save_path) > 3000:
+        if curated_license and curated_save_path.exists() and os.path.getsize(curated_save_path) > 3000:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
@@ -896,29 +858,29 @@ class AssetManager:
                         attribution_text, safety_state, verified_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    web_asset_id,
-                    f"Web Meme: {query[:80]}",
-                    "web_meme",
-                    str(web_save_path),
-                    os.path.getsize(web_save_path),
-                    json.dumps([query, "web_meme", style]),
+                    curated_asset_id,
+                    f"Curated Meme: {query[:80]}",
+                    "curated_meme",
+                    str(curated_save_path),
+                    os.path.getsize(curated_save_path),
+                    json.dumps([query, "curated_meme", style]),
                     1,
-                    web_license.source,
-                    web_license.source_url,
-                    web_license.creator,
-                    web_license.license_name,
-                    web_license.license_url,
-                    1 if web_license.commercial_use else 0,
-                    1 if web_license.modification_allowed else 0,
-                    1 if web_license.attribution_required else 0,
-                    web_license.attribution_text,
-                    web_license.safety_state,
-                    web_license.verified_at
+                    curated_license.source,
+                    curated_license.source_url,
+                    curated_license.creator,
+                    curated_license.license_name,
+                    curated_license.license_url,
+                    1 if curated_license.commercial_use else 0,
+                    1 if curated_license.modification_allowed else 0,
+                    1 if curated_license.attribution_required else 0,
+                    curated_license.attribution_text,
+                    curated_license.safety_state,
+                    curated_license.verified_at
                 ))
             return {
-                "asset_id": web_asset_id,
-                "file_path": str(web_save_path),
-                "license_record": web_license.to_dict()
+                "asset_id": curated_asset_id,
+                "file_path": str(curated_save_path),
+                "license_record": curated_license.to_dict()
             }
 
         # 2. Acquire Animated Reaction GIF for Meme (Primary Choice)

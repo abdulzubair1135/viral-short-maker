@@ -42,6 +42,24 @@ Score each meme objectively on a 0-100 scale:
 7. simplicity (0-100): Easy to read and digest in under 8 seconds.
 quality_score = weighted average (0-100).
 
+CRITICAL INSTRUCTION FOR VISUAL ASSET URL (visual_url):
+For `visual_url`, you MUST provide a direct public working image or animated GIF URL that matches the joke reaction!
+You can select a URL from famous viral meme templates or public reaction assets, for example:
+- Drake Hotline Bling: https://i.imgflip.com/30b1gx.jpg
+- Distracted Boyfriend: https://i.imgflip.com/1ur9b0.jpg
+- Two Buttons Decision: https://i.imgflip.com/1g8my4.jpg
+- UNO Draw 25 Cards: https://i.imgflip.com/3lmzyx.jpg
+- Woman Yelling At Cat: https://i.imgflip.com/345v97.jpg
+- Change My Mind: https://i.imgflip.com/24y43o.jpg
+- Disaster Girl: https://i.imgflip.com/23ls.jpg
+- Expanding Brain: https://i.imgflip.com/1jwhvw.jpg
+- Sad Pablo Escobar: https://i.imgflip.com/1c1uej.jpg
+- Doge Reaction: https://i.imgflip.com/4t0m5.jpg
+- Roll Safe Think About It: https://i.imgflip.com/1h7in3.jpg
+- Funny Cat Reaction GIF: https://upload.wikimedia.org/wikipedia/commons/8/81/Cat_funny_gif.gif
+- Funny Dog Reaction GIF: https://upload.wikimedia.org/wikipedia/commons/9/91/Dog_galloping.gif
+- Or any direct public HTTPS image/GIF link matching your visual concept.
+
 OUTPUT FORMAT:
 Output ONLY a single valid JSON object strictly matching this schema with NO conversational markdown:
 {{
@@ -59,7 +77,7 @@ Output ONLY a single valid JSON object strictly matching this schema with NO con
       "style": "sarcastic",
       "format": "pov",
       "visual_query": "chaos fire computer explosion funny reaction gif meme",
-      "visual_url": "",
+      "visual_url": "https://i.imgflip.com/30b1gx.jpg",
       "screen_text": [
         {{
           "text": "POV: You clicked deploy at 4:59 PM on Friday",
