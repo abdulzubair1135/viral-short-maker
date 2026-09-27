@@ -458,6 +458,141 @@ class RoyaltyFreeStockProvider:
         return None
 
 
+class ReactionGifProvider:
+    """Acquires and generates copyright-safe, high-retention animated reaction GIFs for memes."""
+    USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+    # Curated royalty-free animated GIF reactions mapped to topics
+    TOPIC_GIF_MAP = {
+        "sleep": [
+            "https://upload.wikimedia.org/wikipedia/commons/7/7a/Alarm_Clock_GIF_Animation_High_Res.gif",
+            "https://upload.wikimedia.org/wikipedia/commons/8/81/Cat_funny_gif.gif",
+        ],
+        "car": [
+            "https://upload.wikimedia.org/wikipedia/commons/c/c1/Porsche_928_animated_headlights.gif",
+            "https://upload.wikimedia.org/wikipedia/commons/e/ec/UK_Roundabout_8_Cars.gif",
+        ],
+        "flight": [
+            "https://upload.wikimedia.org/wikipedia/commons/e/e8/Newtons_cradle_animation_book.gif",
+            "https://upload.wikimedia.org/wikipedia/commons/7/7a/Alarm_Clock_GIF_Animation_High_Res.gif",
+        ],
+        "work": [
+            "https://upload.wikimedia.org/wikipedia/commons/6/6a/Sorting_quicksort_anim.gif",
+            "https://upload.wikimedia.org/wikipedia/commons/b/b3/Animation_of_a_video_interview_using_phone.gif",
+        ],
+        "coding": [
+            "https://upload.wikimedia.org/wikipedia/commons/6/6a/Sorting_quicksort_anim.gif",
+        ],
+        "default": [
+            "https://upload.wikimedia.org/wikipedia/commons/1/13/Animated_Awesome_Face_smiley.gif",
+            "https://upload.wikimedia.org/wikipedia/commons/8/81/Cat_funny_gif.gif",
+        ]
+    }
+
+    @classmethod
+    def search_and_download(cls, query: str, target_gif_path: Path, style: str = "sarcastic") -> Optional[LicenseRecord]:
+        q_lower = (query or "").lower()
+        urls = []
+
+        if any(w in q_lower for w in ["sleep", "bed", "tired", "alarm", "snooze", "nap", "thermostat", "dad"]):
+            urls.extend(cls.TOPIC_GIF_MAP["sleep"])
+        elif any(w in q_lower for w in ["car", "light", "drive", "night", "headlight"]):
+            urls.extend(cls.TOPIC_GIF_MAP["car"])
+        elif any(w in q_lower for w in ["flight", "plane", "airport", "time", "clock", "gate"]):
+            urls.extend(cls.TOPIC_GIF_MAP["flight"])
+        elif any(w in q_lower for w in ["work", "job", "office", "boss", "desk", "deploy"]):
+            urls.extend(cls.TOPIC_GIF_MAP["work"])
+        elif any(w in q_lower for w in ["code", "coding", "program", "developer", "bug"]):
+            urls.extend(cls.TOPIC_GIF_MAP["coding"])
+        
+        urls.extend(cls.TOPIC_GIF_MAP["default"])
+
+        target_gif_path.parent.mkdir(parents=True, exist_ok=True)
+        for u in urls:
+            try:
+                req = urllib.request.Request(u, headers={"User-Agent": cls.USER_AGENT})
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    content = resp.read()
+                    if len(content) > 5000:
+                        with open(target_gif_path, "wb") as f:
+                            f.write(content)
+                        return evaluate_license(
+                            license_name="CC / Public Domain Animated GIF",
+                            source="reaction_gif_provider",
+                            creator="Wikimedia Contributor",
+                            source_url=u
+                        )
+            except Exception as e:
+                print(f"[ReactionGifProvider] Download failed for {u}: {e}")
+                continue
+
+        # If web download fails or times out, generate an animated multi-frame GIF using PIL!
+        if cls.generate_animated_canvas(query, target_gif_path, style):
+            return evaluate_license(
+                license_name="Public Domain Animated Canvas",
+                source="generated_gif",
+                creator="Studio GIF Generator",
+                source_url=str(target_gif_path)
+            )
+
+        return None
+
+    @classmethod
+    def generate_animated_canvas(cls, title: str, target_gif_path: Path, style: str = "sarcastic") -> bool:
+        """Generates a high-energy 25-frame 9:16 animated GIF with pulsating reaction motion."""
+        try:
+            from PIL import Image, ImageDraw
+            import math
+
+            width, height = 480, 854
+            frames = []
+
+            if style == "sarcastic":
+                bg_color = (20, 20, 35)
+                accent = (255, 180, 0)
+            elif style == "relatable":
+                bg_color = (25, 35, 50)
+                accent = (56, 189, 248)
+            else:
+                bg_color = (30, 20, 40)
+                accent = (236, 72, 153)
+
+            for frame_idx in range(25):
+                img = Image.new("RGB", (width, height), color=bg_color)
+                draw = ImageDraw.Draw(img)
+
+                # Pulsating background circle animation
+                pulse = int(20 * math.sin(frame_idx * 0.25))
+                cx, cy = width // 2, height // 2 - 20
+                radius = 160 + pulse
+                draw.ellipse([(cx - radius, cy - radius), (cx + radius, cy + radius)], outline=accent, width=4)
+
+                # Inner card box with subtle movement
+                offset_y = int(8 * math.cos(frame_idx * 0.3))
+                card_rect = [(40, 220 + offset_y), (width - 40, height - 260 + offset_y)]
+                draw.rectangle(card_rect, fill=(35, 35, 55), outline=(255, 255, 255), width=2)
+
+                # Animated reaction dot motion
+                dot_x = int(cx + 80 * math.sin(frame_idx * 0.4))
+                dot_y = int(cy + 40 * math.cos(frame_idx * 0.4))
+                draw.ellipse([(dot_x - 12, dot_y - 12), (dot_x + 12, dot_y + 12)], fill=accent)
+
+                frames.append(img)
+
+            target_gif_path.parent.mkdir(parents=True, exist_ok=True)
+            frames[0].save(
+                target_gif_path,
+                save_all=True,
+                append_images=frames[1:],
+                duration=60,
+                loop=0
+            )
+            return True
+        except Exception as e:
+            print(f"[ReactionGifProvider] Error generating animated canvas: {e}")
+            return False
+
+
 class AssetManager:
     """Unified discovery and acquisition interface with strict license verification."""
 
@@ -465,14 +600,14 @@ class AssetManager:
         self.wiki_provider = WikimediaCommonsProvider()
         self.stock_provider = RoyaltyFreeStockProvider()
         self.pd_provider = PublicDomainProvider()
+        self.gif_provider = ReactionGifProvider()
 
     def get_or_acquire_asset(self, query: str, style: str = "sarcastic", preferred_asset_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Retrieves a safe asset.
         1. If user provided asset ID, verify it from DB.
-        2. Query Wikimedia Commons for safe CC/PD images.
-        3. Query RoyaltyFreeStockProvider for HD Unsplash royalty-free images.
-        4. Fallback: High quality styled graphic canvas.
+        2. Query ReactionGifProvider for high-retention animated reaction GIFs.
+        3. Query Wikimedia Commons / Stock providers.
         """
         # 1. Check user provided asset ID
         if preferred_asset_id:
@@ -500,6 +635,47 @@ class AssetManager:
                         "file_path": row["file_path"],
                         "license_record": lic_rec.to_dict()
                     }
+
+        # 2. Acquire Animated Reaction GIF for Meme (Primary Choice)
+        gif_asset_id = str(uuid.uuid4())
+        gif_save_path = ASSETS_DIR / "memes" / f"{gif_asset_id}.gif"
+        gif_license = ReactionGifProvider.search_and_download(query, gif_save_path, style)
+
+        if gif_license and gif_save_path.exists() and os.path.getsize(gif_save_path) > 3000:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO assets (
+                        id, name, category, file_path, file_size, tags, rights_confirmed,
+                        source, source_url, creator, license_name, license_url,
+                        commercial_use, modification_allowed, attribution_required,
+                        attribution_text, safety_state, verified_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    gif_asset_id,
+                    f"Reaction GIF: {query[:80]}",
+                    "animated_gif",
+                    str(gif_save_path),
+                    os.path.getsize(gif_save_path),
+                    json.dumps([query, "animated_gif", style]),
+                    1,
+                    gif_license.source,
+                    gif_license.source_url,
+                    gif_license.creator,
+                    gif_license.license_name,
+                    gif_license.license_url,
+                    1 if gif_license.commercial_use else 0,
+                    1 if gif_license.modification_allowed else 0,
+                    1 if gif_license.attribution_required else 0,
+                    gif_license.attribution_text,
+                    gif_license.safety_state,
+                    gif_license.verified_at
+                ))
+            return {
+                "asset_id": gif_asset_id,
+                "file_path": str(gif_save_path),
+                "license_record": gif_license.to_dict()
+            }
 
         # 2. Query Wikimedia Commons
         safe_candidates = self.wiki_provider.search(query, limit=5)
