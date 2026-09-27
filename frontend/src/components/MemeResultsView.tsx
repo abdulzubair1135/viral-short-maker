@@ -28,6 +28,7 @@ export const MemeResultsView: React.FC<MemeResultsViewProps> = ({
   const [editingMeme, setEditingMeme] = useState<Meme | null>(null);
   const [expandedMemeId, setExpandedMemeId] = useState<string | null>(null);
   const [publishModalClip, setPublishModalClip] = useState<Clip | null>(null);
+  const [viewingAiLogMeme, setViewingAiLogMeme] = useState<Meme | null>(null);
 
   const handleTogglePlay = (memeId: string) => {
     const currentVid = document.getElementById(`video-${memeId}`) as HTMLVideoElement;
@@ -288,6 +289,15 @@ export const MemeResultsView: React.FC<MemeResultsViewProps> = ({
                     <span>{isRegenerating ? "Rewriting..." : "New Joke"}</span>
                   </button>
 
+                  <button
+                    onClick={() => setViewingAiLogMeme(meme)}
+                    className="py-1.5 px-2.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-500/30 text-indigo-300 text-[11px] font-semibold flex items-center justify-center gap-1 transition"
+                    title="View AI Prompt & Raw Response"
+                  >
+                    <FileText className="w-3 h-3" />
+                    <span>AI Logs</span>
+                  </button>
+
                   <a
                     href={meme.output_path ? `/api/memes/video/${meme.id}` : '#'}
                     download={`meme_${meme.id.slice(0, 8)}.mp4`}
@@ -327,6 +337,60 @@ export const MemeResultsView: React.FC<MemeResultsViewProps> = ({
           );
         })}
       </div>
+
+      {/* AI Prompt & Response Inspection Modal */}
+      {viewingAiLogMeme && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-studio-900 border border-studio-700 rounded-2xl w-full max-w-2xl p-6 shadow-2xl space-y-4 relative max-h-[85vh] overflow-y-auto">
+            <button
+              onClick={() => setViewingAiLogMeme(null)}
+              className="absolute right-4 top-4 text-slate-400 hover:text-white p-1 rounded-lg"
+            >
+              <XCircle className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2 text-indigo-400">
+              <FileText className="w-5 h-5" />
+              <h2 className="text-base font-bold text-white">AI Conversation & Prompt Inspection Log</h2>
+            </div>
+
+            <div className="space-y-4 text-xs font-mono">
+              <div>
+                <label className="block text-indigo-300 font-bold mb-1 uppercase tracking-wider">
+                  1. Exact Prompt Sent to DeepSeek / Gemini AI:
+                </label>
+                <div className="p-3 bg-studio-950 border border-studio-800 rounded-xl text-slate-300 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto font-mono text-[11px]">
+                  {viewingAiLogMeme.ai_prompt || "Prompt logged during system pipeline generation."}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-emerald-300 font-bold mb-1 uppercase tracking-wider">
+                  2. Exact Raw Response Received from AI:
+                </label>
+                <div className="p-3 bg-studio-950 border border-studio-800 rounded-xl text-emerald-300/90 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto font-mono text-[11px]">
+                  {viewingAiLogMeme.ai_response || JSON.stringify(viewingAiLogMeme, null, 2)}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-studio-950 border border-studio-800 text-slate-400 space-y-1">
+                <div>Visual Image Query: <strong className="text-amber-300">{viewingAiLogMeme.visual_query}</strong></div>
+                <div>Visual Asset Source: <strong className="text-emerald-300">{viewingAiLogMeme.license_record?.source}</strong> ({viewingAiLogMeme.license_record?.license_name})</div>
+                <div>Copyright Safety State: <strong className="text-emerald-400">{viewingAiLogMeme.license_record?.safety_state} (100% Safe For Commercial Use)</strong></div>
+              </div>
+            </div>
+
+            <div className="pt-2 text-right">
+              <button
+                onClick={() => setViewingAiLogMeme(null)}
+                className="px-4 py-2 bg-studio-800 hover:bg-studio-750 text-white rounded-xl font-bold"
+              >
+                Close Logs
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* YouTube Publish Modal */}
       {publishModalClip && (

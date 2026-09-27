@@ -332,3 +332,17 @@ def migrate_schema(conn: sqlite3.Connection):
             except Exception:
                 pass
 
+    # memes table migrations
+    cursor.execute("PRAGMA table_info(memes)")
+    existing_meme_cols = {row[1] for row in cursor.fetchall()}
+    new_meme_cols = [
+        ("ai_prompt", "TEXT DEFAULT ''"),
+        ("ai_response", "TEXT DEFAULT ''"),
+    ]
+    for col_name, col_def in new_meme_cols:
+        if col_name not in existing_meme_cols:
+            try:
+                cursor.execute(f"ALTER TABLE memes ADD COLUMN {col_name} {col_def};")
+            except Exception:
+                pass
+

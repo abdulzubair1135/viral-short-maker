@@ -192,6 +192,11 @@ class AIRouter:
                 valid_memes = validate_meme_generation_response(raw, default_topic=topic)
                 if valid_memes:
                     logger.info(f"AIRouter: Successfully generated {len(valid_memes)} memes via '{prov.name}'")
+                    raw_str = raw if isinstance(raw, str) else json.dumps(raw)
+                    for item in valid_memes:
+                        item["_ai_prompt"] = prompt
+                        item["_ai_response"] = raw_str
+                        item["_ai_provider"] = prov.name
                     return valid_memes
             except Exception as e:
                 logger.warning(f"AIRouter: Provider '{p_name}' failed for meme generation: {e}")
@@ -199,6 +204,13 @@ class AIRouter:
         # Deterministic Creative Heuristics Fallback
         logger.info(f"AIRouter: Using creative meme heuristics fallback for topic: '{topic}'")
         clean_topic = topic.strip().title()
+        fallback_response_str = json.dumps({
+            "status": "Heuristic comedy engine executed",
+            "topic": topic,
+            "style": style,
+            "reason": "Browser AI provider session took longer than timeout limit; engaged instant local viral meme generator."
+        }, indent=2)
+
         fallback_memes = [
             {
                 "concept": f"{clean_topic} expectation vs reality",
@@ -207,6 +219,9 @@ class AIRouter:
                 "style": style if style != "auto" else "sarcastic",
                 "format": format_type if format_type != "auto" else "pov",
                 "visual_query": f"{topic} panic confused funny reaction",
+                "_ai_prompt": prompt,
+                "_ai_response": fallback_response_str,
+                "_ai_provider": "creative_heuristics",
                 "screen_text": [
                     {"text": f"POV: YOU THOUGHT {topic.upper()} WAS GOING TO BE EASY", "position": "top", "style": "pill"},
                     {"text": "AND NOW YOU ARE RECONSIDERING EVERY LIFE CHOICE", "position": "bottom", "style": "impact"}

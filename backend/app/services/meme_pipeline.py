@@ -193,8 +193,8 @@ class MemePipelineService:
                             id, project_id, concept, hook, joke, style, format,
                             visual_query, asset_id, screen_text_json, voice_script,
                             audio_path, output_path, duration, quality_score, scores_json,
-                            title, description, hashtags, approval_status
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')
+                            title, description, hashtags, approval_status, ai_prompt, ai_response
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?)
                     """, (
                         meme_id,
                         project_id,
@@ -215,6 +215,8 @@ class MemePipelineService:
                         concept.get("title", f"{concept.get('hook', topic)} #shorts"),
                         concept.get("description", f"{concept.get('concept', topic)}\n\n#shorts #memes"),
                         json.dumps(concept.get("hashtags", ["#shorts", "#memes"])),
+                        concept.get("_ai_prompt", ""),
+                        concept.get("_ai_response", "")
                     ))
 
                 rendered_memes.append(meme_id)

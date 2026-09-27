@@ -43,6 +43,8 @@ export interface Meme {
   description: string;
   hashtags: string[];
   approval_status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  ai_prompt?: string;
+  ai_response?: string;
   license_record: {
     source: string;
     creator: string;
