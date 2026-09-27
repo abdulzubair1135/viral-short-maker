@@ -181,7 +181,7 @@ class AIRouter:
         )
 
         providers_to_try = [provider_name]
-        for alt in ["gemini", "chatgpt", "deepseek"]:
+        for alt in ["gemini", "deepseek", "chatgpt"]:
             if alt not in providers_to_try:
                 providers_to_try.append(alt)
 

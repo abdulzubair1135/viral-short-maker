@@ -121,8 +121,12 @@ class GeminiBrowserProvider(AIProvider):
         if not response_text:
             response_text = await response_locator.inner_text()
 
-        # Check for canned Gemini refusal responses
+        # Check for canned Gemini refusal or web error responses
         refusal_triggers = [
+            "sorry, something went wrong",
+            "something went wrong",
+            "please try your request again",
+            "try your request again",
             "having a hard time fulfilling your request",
             "cannot fulfill",
             "can't help with that",
@@ -131,8 +135,8 @@ class GeminiBrowserProvider(AIProvider):
         ]
         for trig in refusal_triggers:
             if trig in response_text.lower():
-                logger.warning(f"Detected Gemini policy false-positive refusal ('{trig}'). Triggering auto-fallback...")
-                raise RuntimeError(f"Gemini policy false-positive refusal: {response_text.strip()}")
+                logger.warning(f"Detected Gemini web error or refusal ('{trig}'). Triggering automatic DeepSeek fallback...")
+                raise RuntimeError(f"Gemini web error or refusal: {response_text.strip()}")
 
         return response_text
 
