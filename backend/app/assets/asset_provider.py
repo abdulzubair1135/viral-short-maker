@@ -499,7 +499,12 @@ class ReactionGifProvider:
 
     @classmethod
     def live_wikimedia_gif_search(cls, query: str) -> List[str]:
-        """Dynamically searches Wikimedia Commons for live animated GIFs matching the topic or funny cat/dog keywords."""
+        """Dynamically searches Wikimedia Commons for live animated GIFs, strictly blacklisting vintage poster archive documents."""
+        bad_keywords = [
+            "dpla", "joe_dope", "joe dope", "poster", "document", "military", "war",
+            "map", "tessellation", "ambigram", "chart", "diagram", "page", "malice",
+            "newspaper", "archive", "historical"
+        ]
         try:
             clean_q = re.sub(r'[^\w\s]', '', query).strip()
             if not clean_q:
@@ -514,7 +519,13 @@ class ReactionGifProvider:
                 with urllib.request.urlopen(req, timeout=5) as resp:
                     data = json.loads(resp.read().decode('utf-8'))
                     items = data.get('query', {}).get('search', [])
-                    gif_titles = [item['title'] for item in items if item.get('title', '').lower().endswith('.gif')]
+                    
+                    gif_titles = []
+                    for item in items:
+                        t = item.get('title', '')
+                        if t.lower().endswith('.gif') and not any(bad in t.lower() for bad in bad_keywords):
+                            gif_titles.append(t)
+                            
                     if not gif_titles:
                         continue
                     
@@ -526,8 +537,9 @@ class ReactionGifProvider:
                         pages = info_data.get('query', {}).get('pages', {})
                         for _, p in pages.items():
                             ii = p.get('imageinfo', [{}])[0]
-                            if ii.get('mime') == 'image/gif' and ii.get('url'):
-                                urls.append(ii['url'])
+                            u = ii.get('url', '')
+                            if ii.get('mime') == 'image/gif' and u and not any(bad in u.lower() for bad in bad_keywords):
+                                urls.append(u)
                 if urls:
                     break
             return urls
@@ -536,7 +548,7 @@ class ReactionGifProvider:
             return []
 
     @classmethod
-    def search_and_download(cls, query: str, target_gif_path: Path, style: str = "sarcastic") -> Optional[LicenseRecord]:
+    def search_and_download(cls, query: str, target_gif_path: Path, style: str = "sarcastic", asset_index: int = 0) -> Optional[LicenseRecord]:
         q_lower = (query or "").lower()
         urls = []
 
@@ -563,8 +575,15 @@ class ReactionGifProvider:
         
         urls.extend(cls.TOPIC_GIF_MAP["default"])
 
+        # Rotate URL based on asset_index so meme #1, #2, #3 get distinct visual assets
+        if urls:
+            start_pos = asset_index % len(urls)
+            rotated_urls = urls[start_pos:] + urls[:start_pos]
+        else:
+            rotated_urls = urls
+
         target_gif_path.parent.mkdir(parents=True, exist_ok=True)
-        for u in urls:
+        for u in rotated_urls:
             try:
                 req = urllib.request.Request(u, headers={"User-Agent": cls.USER_AGENT})
                 with urllib.request.urlopen(req, timeout=10) as resp:
@@ -658,9 +677,9 @@ class AssetManager:
         self.pd_provider = PublicDomainProvider()
         self.gif_provider = ReactionGifProvider()
 
-    def get_or_acquire_asset(self, query: str, style: str = "sarcastic", preferred_asset_id: Optional[str] = None) -> Dict[str, Any]:
+    def get_or_acquire_asset(self, query: str, style: str = "sarcastic", preferred_asset_id: Optional[str] = None, asset_index: int = 0) -> Dict[str, Any]:
         """
-        Retrieves a safe asset.
+        Retrieves a safe asset with unique asset rotation per meme index.
         1. If user provided asset ID, verify it from DB.
         2. Query ReactionGifProvider for high-retention animated reaction GIFs.
         3. Query Wikimedia Commons / Stock providers.
@@ -695,7 +714,7 @@ class AssetManager:
         # 2. Acquire Animated Reaction GIF for Meme (Primary Choice)
         gif_asset_id = str(uuid.uuid4())
         gif_save_path = ASSETS_DIR / "memes" / f"{gif_asset_id}.gif"
-        gif_license = ReactionGifProvider.search_and_download(query, gif_save_path, style)
+        gif_license = ReactionGifProvider.search_and_download(query, gif_save_path, style, asset_index=asset_index)
 
         if gif_license and gif_save_path.exists() and os.path.getsize(gif_save_path) > 3000:
             with get_db_connection() as conn:

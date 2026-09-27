@@ -150,7 +150,8 @@ class MemePipelineService:
                 asset = asset_mgr.get_or_acquire_asset(
                     query=concept.get("visual_query", topic),
                     style=concept.get("style", "sarcastic"),
-                    preferred_asset_id=target_asset_id
+                    preferred_asset_id=target_asset_id,
+                    asset_index=idx
                 )
 
                 # 2. Synthesize audio voiceover narration (disabled for memes per user directive unless explicitly requested)
