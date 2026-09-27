@@ -331,6 +331,28 @@ export const api = {
     return res.json();
   },
 
+  executeMultiPlatformUpload: async (data: {
+    item_id: string;
+    item_type?: string;
+    platform: 'youtube' | 'facebook' | 'both';
+    title: string;
+    description: string;
+    hashtags: string[];
+    audience?: string;
+    visibility?: string;
+  }) => {
+    const res = await fetch(`${API_BASE}/repurpose/publish_multi_platform`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Multi-platform publishing error");
+    }
+    return res.json();
+  },
+
   suggestMetadata: async (data: { clip_id?: string; title?: string; transcript?: string; style?: string; provider?: string }) => {
     const res = await fetch(`${API_BASE}/ai/suggest_metadata`, {
       method: 'POST',

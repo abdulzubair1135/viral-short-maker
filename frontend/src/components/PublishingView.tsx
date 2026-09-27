@@ -126,16 +126,16 @@ export const PublishingView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b border-studio-850">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-xs font-bold text-red-400 uppercase tracking-wider">
-              YouTube Publishing Control Center
+            <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+            <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
+              Multi-Platform Control Center (YouTube Shorts & Facebook Reels)
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-            Approved Shorts Ready to Publish
+            Approved Videos Ready to Publish
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Review and publish approved videos across both Creator Review and Meme Studio pipelines.
+            Review and 1-click publish approved videos to YouTube Shorts, Facebook Reels, or BOTH platforms at once.
           </p>
         </div>
 
@@ -149,7 +149,7 @@ export const PublishingView: React.FC = () => {
 
       {loading ? (
         <div className="py-20 text-center text-slate-500 text-xs flex flex-col items-center gap-3">
-          <RefreshCw className="w-6 h-6 animate-spin text-red-500" />
+          <RefreshCw className="w-6 h-6 animate-spin text-indigo-500" />
           <span>Scanning approved videos...</span>
         </div>
       ) : approvedItems.length === 0 ? (
@@ -157,7 +157,7 @@ export const PublishingView: React.FC = () => {
           <CheckCircle2 className="w-12 h-12 text-slate-600 mx-auto mb-3" />
           <h3 className="text-base font-bold text-white mb-1">No Approved Videos Yet</h3>
           <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-            When you approve clips in <strong>Creator Review</strong> or memes in <strong>Meme Studio</strong>, they will appear here ready for one-click publishing to YouTube.
+            When you approve clips in <strong>Creator Review</strong> or memes in <strong>Meme Studio</strong>, they will appear here ready for one-click publishing to YouTube & Facebook.
           </p>
         </div>
       ) : (
@@ -201,10 +201,10 @@ export const PublishingView: React.FC = () => {
               <div className="p-4 pt-0">
                 <button
                   onClick={() => handlePublish(item)}
-                  className="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-red-600/20 transition"
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-red-600 via-purple-600 to-blue-600 hover:from-red-500 hover:to-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20 transition"
                 >
                   <Video className="w-4 h-4" />
-                  <span>Publish to YouTube</span>
+                  <span>Publish to YT / FB</span>
                 </button>
               </div>
             </div>

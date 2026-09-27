@@ -130,14 +130,23 @@ class YouTubePublishPrepRequest(BaseModel):
     title: str
     description: str
     hashtags: List[str]
-    audience: str = Field(..., description="'made_for_kids' or 'not_made_for_kids'")
-    visibility: str = Field("private", description="'private', 'unlisted', or 'public'")
+    audience: str = Field("not_made_for_kids", description="'made_for_kids' or 'not_made_for_kids'")
+    visibility: str = Field("public", description="'private', 'unlisted', or 'public'")
+
+class MultiPlatformPublishRequest(BaseModel):
+    item_id: str
+    item_type: str = Field("clip", description="'clip' or 'meme'")
+    platform: str = Field("both", description="'youtube', 'facebook', or 'both'")
+    title: str
+    description: str
+    hashtags: List[str]
+    audience: str = Field("not_made_for_kids", description="'made_for_kids' or 'not_made_for_kids'")
+    visibility: str = Field("public", description="'private', 'unlisted', or 'public'")
 
 @router.post("/publish_preparation")
 def prepare_youtube_publish(req: YouTubePublishPrepRequest):
     """
-    Validates YouTube upload preparation for a generated Short.
-    Requires explicit audience confirmation ('made_for_kids' or 'not_made_for_kids').
+    Validates upload preparation for a generated Short / Reel.
     """
     if req.audience not in ("made_for_kids", "not_made_for_kids"):
         raise HTTPException(
@@ -150,7 +159,11 @@ def prepare_youtube_publish(req: YouTubePublishPrepRequest):
         cursor.execute("SELECT * FROM clips WHERE id = ?", (req.clip_id,))
         clip = cursor.fetchone()
         if not clip:
-            raise HTTPException(status_code=404, detail="Clip not found")
+            # Check memes table fallback
+            cursor.execute("SELECT * FROM memes WHERE id = ?", (req.clip_id,))
+            clip = cursor.fetchone()
+        if not clip:
+            raise HTTPException(status_code=404, detail="Item not found")
 
         cursor.execute("""
             UPDATE clips 
@@ -170,27 +183,24 @@ def prepare_youtube_publish(req: YouTubePublishPrepRequest):
 @router.post("/publish_upload")
 async def execute_youtube_upload(req: YouTubePublishPrepRequest):
     """
-    Executes real-time upload of the generated Short to YouTube Studio
-    via the authenticated Chrome browser session.
+    Executes upload to YouTube Studio.
     """
-    if req.audience not in ("made_for_kids", "not_made_for_kids"):
-        raise HTTPException(
-            status_code=400,
-            detail="Audience must be explicitly confirmed as 'made_for_kids' or 'not_made_for_kids'."
-        )
-
+    from backend.app.publishing.youtube_api import YouTubeApiService
+    
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM clips WHERE id = ?", (req.clip_id,))
-        clip = cursor.fetchone()
-        if not clip:
-            raise HTTPException(status_code=404, detail="Clip not found")
-        output_path = clip["output_path"]
+        item = cursor.fetchone()
+        if not item:
+            cursor.execute("SELECT * FROM memes WHERE id = ?", (req.clip_id,))
+            item = cursor.fetchone()
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found")
+        output_path = item["output_path"]
 
     if not output_path or not Path(output_path).exists():
-        raise HTTPException(status_code=400, detail="Clip video file has not been rendered to disk yet.")
+        raise HTTPException(status_code=400, detail="Video file has not been rendered to disk yet.")
 
-    from backend.app.publishing.youtube_api import YouTubeApiService
     try:
         res = await YouTubeApiService.upload_short(
             clip_id=req.clip_id,
@@ -205,5 +215,84 @@ async def execute_youtube_upload(req: YouTubePublishPrepRequest):
     except Exception as e:
         logger.error(f"YouTube upload failed: {e}")
         raise HTTPException(status_code=500, detail=f"YouTube upload error: {str(e)}")
+
+@router.post("/publish_multi_platform")
+async def execute_multi_platform_upload(req: MultiPlatformPublishRequest):
+    """
+    Executes automated publishing to YouTube, Facebook, or BOTH simultaneously.
+    """
+    from backend.app.publishing.youtube_api import YouTubeApiService
+    from backend.app.publishing.facebook_api import FacebookApiService
+
+    from pathlib import Path
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        if req.item_type == "meme":
+            cursor.execute("SELECT * FROM memes WHERE id = ?", (req.item_id,))
+        else:
+            cursor.execute("SELECT * FROM clips WHERE id = ?", (req.item_id,))
+        item = cursor.fetchone()
+        if not item:
+            # Fallback search across both tables
+            cursor.execute("SELECT * FROM clips WHERE id = ?", (req.item_id,))
+            item = cursor.fetchone()
+            if not item:
+                cursor.execute("SELECT * FROM memes WHERE id = ?", (req.item_id,))
+                item = cursor.fetchone()
+
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found in clips or memes DB.")
+        output_path = item["output_path"]
+
+    if not output_path or not Path(output_path).exists():
+        raise HTTPException(status_code=400, detail="Video file has not been rendered to disk yet.")
+
+    results = {}
+    errors = []
+
+    # 1. YouTube Upload
+    if req.platform in ("youtube", "both"):
+        try:
+            yt_res = await YouTubeApiService.upload_short(
+                clip_id=req.item_id,
+                file_path=output_path,
+                title=req.title,
+                description=req.description,
+                hashtags=req.hashtags,
+                audience=req.audience,
+                visibility=req.visibility
+            )
+            results["youtube"] = yt_res
+        except Exception as e:
+            logger.error(f"YouTube publishing failed: {e}")
+            errors.append(f"YouTube: {str(e)}")
+
+    # 2. Facebook Upload
+    if req.platform in ("facebook", "both"):
+        try:
+            fb_res = await FacebookApiService.upload_reel(
+                clip_id=req.item_id,
+                file_path=output_path,
+                title=req.title,
+                description=req.description,
+                hashtags=req.hashtags,
+                visibility=req.visibility
+            )
+            results["facebook"] = fb_res
+        except Exception as e:
+            logger.error(f"Facebook publishing failed: {e}")
+            errors.append(f"Facebook: {str(e)}")
+
+    if not results and errors:
+        raise HTTPException(status_code=500, detail=" Publishing failed on all selected platforms: " + " | ".join(errors))
+
+    return {
+        "status": "SUCCESS" if not errors else "PARTIAL_SUCCESS",
+        "platform_requested": req.platform,
+        "results": results,
+        "errors": errors
+    }
+
 
 
