@@ -99,16 +99,19 @@ class GeminiBrowserProvider(AIProvider):
         response_locator = page.locator(".model-response-text, message-content, [data-test-id='model-response']").last
         await response_locator.wait_for(state="visible", timeout=60000)
 
-        # Wait until response text stabilizes
+        # Wait until response text stabilizes and completes JSON structure
         last_len = 0
         stable_count = 0
         response_text = ""
-        for _ in range(40):
+        for _ in range(45):
             await asyncio.sleep(2.0)
             cur_text = await response_locator.inner_text()
-            if len(cur_text) == last_len and len(cur_text) > 50:
+            clean_end = cur_text.strip()
+            has_json_end = clean_end.endswith("}") or clean_end.endswith("]") or clean_end.endswith("```")
+            
+            if len(cur_text) == last_len and len(cur_text) > 100:
                 stable_count += 1
-                if stable_count >= 2:
+                if (stable_count >= 2 and has_json_end) or stable_count >= 4:
                     response_text = cur_text
                     break
             else:
