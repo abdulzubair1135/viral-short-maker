@@ -93,7 +93,7 @@ class MemeRenderer:
             bottom_items = screen_text[1:]
 
         # 1. RENDER TOP (Hook / Setup)
-        top_y = 260
+        top_y = 250
         for item in top_items:
             text = str(item.get("text", "")).strip()
             if not text:
@@ -103,20 +103,22 @@ class MemeRenderer:
             if style == "pill" or format_type == "pov":
                 # Render modern pill banner
                 lines = cls.wrap_text(text, f_pill, max_text_w - 60, draw)
-                line_height = 50
-                box_h = len(lines) * line_height + 40
-                box_w = max(400, min(max_text_w + 40, max([draw.textbbox((0, 0), l, font=f_pill)[2] - draw.textbbox((0, 0), l, font=f_pill)[0] for l in lines] + [300]) + 60))
+                line_height = 52
+                box_h = len(lines) * line_height + 36
+                max_l_w = max([draw.textbbox((0, 0), l, font=f_pill)[2] - draw.textbbox((0, 0), l, font=f_pill)[0] for l in lines] + [300])
+                box_w = max(420, min(max_text_w + 40, max_l_w + 70))
                 box_x0 = (cls.WIDTH - box_w) // 2
                 box_x1 = box_x0 + box_w
 
+                # Dark rounded pill card with high-contrast border
                 draw.rounded_rectangle(
                     [(box_x0, top_y), (box_x1, top_y + box_h)],
-                    radius=20,
-                    fill=(15, 15, 20, 235),
-                    outline=(255, 255, 255, 180),
+                    radius=22,
+                    fill=(10, 10, 16, 245),
+                    outline=(255, 255, 255, 220),
                     width=3
                 )
-                curr_y = top_y + 20
+                curr_y = top_y + 18
                 for line in lines:
                     line_w = draw.textbbox((0, 0), line, font=f_pill)[2] - draw.textbbox((0, 0), line, font=f_pill)[0]
                     lx = (cls.WIDTH - line_w) // 2
@@ -125,14 +127,14 @@ class MemeRenderer:
 
                 top_y += box_h + 30
             else:
-                # Classic Impact Uppercase
+                # Classic Impact Uppercase Header
                 clean_text = text.upper()
                 lines = cls.wrap_text(clean_text, f_impact_large, max_text_w, draw)
-                line_height = 65
+                line_height = 68
                 for line in lines:
                     line_w = draw.textbbox((0, 0), line, font=f_impact_large)[2] - draw.textbbox((0, 0), line, font=f_impact_large)[0]
                     lx = (cls.WIDTH - line_w) // 2
-                    draw.text((lx, top_y), line, font=f_impact_large, fill="white", stroke_width=6, stroke_fill="black")
+                    draw.text((lx, top_y), line, font=f_impact_large, fill="white", stroke_width=7, stroke_fill="black")
                     top_y += line_height
                 top_y += 20
 
@@ -147,32 +149,32 @@ class MemeRenderer:
                 for line in lines:
                     line_w = draw.textbbox((0, 0), line, font=f_impact_medium)[2] - draw.textbbox((0, 0), line, font=f_impact_medium)[0]
                     lx = (cls.WIDTH - line_w) // 2
-                    draw.text((lx, mid_y), line, font=f_impact_medium, fill="yellow", stroke_width=5, stroke_fill="black")
-                    mid_y += 55
+                    draw.text((lx, mid_y), line, font=f_impact_medium, fill="#FFEB3B", stroke_width=6, stroke_fill="black")
+                    mid_y += 58
 
         # 3. RENDER BOTTOM (Punchline / Twist)
         if bottom_items:
-            # Calculate total height of bottom text to position it just above safe zone (around y=1480)
+            # Position bottom punchline text comfortably above safe zone
             all_bottom_lines = []
             for item in bottom_items:
                 text = str(item.get("text", "")).strip()
                 if text:
                     all_bottom_lines.extend(cls.wrap_text(text.upper(), f_impact_large, max_text_w, draw))
 
-            line_height = 68
+            line_height = 70
             total_bottom_h = len(all_bottom_lines) * line_height
-            bot_y = min(1500 - total_bottom_h, 1380)
+            bot_y = min(1520 - total_bottom_h, 1380)
 
             for line in all_bottom_lines:
                 line_w = draw.textbbox((0, 0), line, font=f_impact_large)[2] - draw.textbbox((0, 0), line, font=f_impact_large)[0]
                 lx = (cls.WIDTH - line_w) // 2
-                draw.text((lx, bot_y), line, font=f_impact_large, fill="white", stroke_width=6, stroke_fill="black")
+                draw.text((lx, bot_y), line, font=f_impact_large, fill="white", stroke_width=7, stroke_fill="black")
                 bot_y += line_height
 
         # 4. RENDER ATTRIBUTION (If required)
         if attribution_text and attribution_text.strip():
             clean_attr = attribution_text.strip()[:65]
-            draw.text((40, 1600), clean_attr, font=f_attr, fill=(200, 200, 200, 200), stroke_width=2, stroke_fill="black")
+            draw.text((40, 1610), clean_attr, font=f_attr, fill=(220, 220, 220, 220), stroke_width=2, stroke_fill="black")
 
         output_png.parent.mkdir(parents=True, exist_ok=True)
         img.save(output_png, "PNG")
