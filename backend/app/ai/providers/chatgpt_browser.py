@@ -50,8 +50,9 @@ class ChatGPTBrowserProvider(AIProvider):
             max_duration=60
         )
 
-        context = await browser_manager.get_context(self.name)
+        context = await browser_manager.get_cdp_context()
         page = context.pages[0] if context.pages else await context.new_page()
+        await page.bring_to_front()
 
         logger.info(f"Navigating to ChatGPT web interface ({self.URL})...")
         await page.goto(self.URL, wait_until="networkidle", timeout=45000)

@@ -51,7 +51,8 @@ class DeepSeekBrowserProvider(AIProvider):
 
         logger.info("Opening DeepSeek session in Chrome...")
         page = await browser_manager.get_or_create_page("deepseek.com", self.URL)
-        await asyncio.sleep(2.0)
+        await page.bring_to_front()
+        await asyncio.sleep(1.5)
 
         # Check login
         if await page.locator("button:has-text('Log in'), button:has-text('Sign in')").count() > 0:

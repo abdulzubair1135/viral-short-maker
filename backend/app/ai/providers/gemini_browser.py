@@ -55,7 +55,8 @@ class GeminiBrowserProvider(AIProvider):
 
         logger.info("Opening Gemini session in Chrome...")
         page = await browser_manager.get_or_create_page("gemini.google.com", self.URL)
-        await asyncio.sleep(2.0)
+        await page.bring_to_front()
+        await asyncio.sleep(1.5)
 
         # Check for authentication requirement
         if "accounts.google.com" in page.url or await page.locator("text='Sign in'").count() > 0:
